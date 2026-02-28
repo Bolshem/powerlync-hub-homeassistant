@@ -1,0 +1,14 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Powerlync Energy Monitor",
+        "description": "This will automatically find your Powerlync device paired via HomeKit Controller."
+      }
+    },
+    "abort": {
+      "already_configured": "Powerlync Energy Monitor is already configured.",
+      "no_powerlync_found": "No Powerlync device found. Make sure it is paired via HomeKit Controller first."
+    }
+  }
+}
