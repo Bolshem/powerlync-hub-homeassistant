@@ -233,13 +233,15 @@ This integration was developed by reverse engineering the HomeKit mDNS advertise
 
 ## Known Possible Issues
 
-The following issues were identified during code review but have not yet been fixed:
+All previously identified issues have been resolved:
 
-- **Incorrect `iot_class` in `manifest.json`**: The manifest declares `"iot_class": "local_push"`, but the integration uses a fixed polling interval — not event-driven push. The correct value should be `"local_polling"`. This is cosmetic but may affect how HA categorises the integration.
+- **`iot_class` corrected**: `manifest.json` now declares `"iot_class": "local_polling"`, accurately reflecting the fixed-interval polling behaviour.
 
-- **Fragile HomeKit device lookup in `sensor.py`**: The poll function resolves the Powerlync device by grabbing the first entry from `hass.data["homekit_controller-devices"]` (line 157). If multiple HomeKit devices are paired to HA, this may resolve the wrong device. The config entry already stores `homekit_entry_id` for this purpose, but `sensor.py` does not use it to filter the lookup.
+- **HomeKit device lookup hardened**: `sensor.py` now resolves the Powerlync device by matching `homekit_entry_id` from the config entry against each paired `HKDevice`, ensuring the correct device is selected even when multiple HomeKit accessories are paired. A warning-logged fallback to the first device is retained for resilience against HA version differences.
 
-- **IID 26 (`Local Time`) defined but never polled**: `CHAR_LOCAL_TIME` (iid 26) is defined as a UUID constant in `__init__.py` but is absent from the `CHARACTERISTICS` list in `sensor.py`. It is not exposed as a sensor and is never requested during polling.
+- **IID 26 (`Local Time`) now polled**: IID 26 is included in the `CHARACTERISTICS` poll list and exposed as a `sensor.powerlync_energy_monitor_local_time` timestamp entity.
+
+- **Fallback to last known value**: Sensors retain their last known good value when a poll returns `None` or a parse failure. Cumulative energy sensors (`retain_on_zero=True`) additionally retain their last value when the parsed result is `0`, preventing spurious zero-readings from causing spikes in the Energy Dashboard.
 
 ---
 

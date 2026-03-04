@@ -6,5 +6,5 @@
   "requirements": ["aiohomekit==3.2.20"],
   "dependencies": ["homekit_controller"],
   "codeowners": [],
-  "iot_class": "local_push"
+  "iot_class": "local_polling"
 }
