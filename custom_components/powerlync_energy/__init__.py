@@ -24,18 +24,6 @@ CHAR_METER_TIME                = "B8780157-1BC7-470F-B611-61200442517A"  # iid 2
 CHAR_ZIGBEE_MAC                = "CD4DF6DC-8EAC-4818-92BF-AA408F2D8F33"  # iid 28 string
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Set up Powerlync Energy via YAML."""
-    if DOMAIN in config:
-        hass.async_create_task(
-            hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": "import"},
-                data={},
-            )
-        )
-    return True
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Powerlync Energy from a config entry."""

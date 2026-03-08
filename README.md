@@ -1,16 +1,17 @@
-# Powerlync Hub — Home Assistant Integration
+# Powerlync Plug/Hub — Home Assistant Integration
 
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Bolshem&repository=powerlync-hub-homeassistant&category=integration)
 
-A custom Home Assistant integration that exposes real-time energy monitoring data from the **BC Hydro Powerlync Hub** (by Powerley) as sensors in Home Assistant — with no cloud dependency and no reverse-engineering of proprietary protocols.
+A custom Home Assistant integration that exposes real-time energy monitoring data from the **BC Hydro Powerlync Plug/Hub** (by Powerley) as sensors in Home Assistant — with no cloud dependency and no reverse-engineering of proprietary protocols.
 
 ---
 
 ## Background
 
-The BC Hydro Powerlync Hub is a smart energy monitor that reads your electricity meter via Zigbee (Smart Energy Profile) and reports real-time consumption data to the Powerley cloud. It retails for ~$75 and is available to BC Hydro customers.
+The BC Hydro Powerlync Plug/Hub is a smart energy monitor that reads your electricity meter via Zigbee (Smart Energy Profile) and reports real-time consumption data to the Powerley cloud. It retails for ~$75 and is available to BC Hydro customers.
 
 While the device communicates upstream to AWS IoT Core using mutual TLS (making cloud traffic interception impractical), it also advertises itself as an **Apple HomeKit accessory** over mDNS on your local network. This integration leverages that HomeKit interface to extract energy data locally, without any cloud dependency.
 
@@ -21,8 +22,8 @@ While the device communicates upstream to AWS IoT Core using mutual TLS (making 
 ```
  Zigbee (Smart Energy Profile)
  ┌─────────────┐                    ┌──────────────────┐
- │ BC Hydro    │ ─────────────────► │ Powerlync Hub    │
- │ Smart Meter │                    │ (Powerley device)│
+ │ BC Hydro    │ ─────────────────► │ Powerlync Plug/Hub │
+ │ Smart Meter │                    │ (Powerley device) │
  └─────────────┘                    └────────┬─────────┘
                                              │
                           ┌──────────────────┼──────────────────┐
@@ -70,6 +71,12 @@ All characteristics have `"perms": ["pr", "ev"]` — they support both read and 
 
 ### Via HACS (recommended)
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Bolshem&repository=powerlync-hub-homeassistant&category=integration)
+
+**One-click install** (if HACS is already installed): click the button above.
+
+Or manually:
+
 1. Open HACS in Home Assistant
 2. Go to **Integrations → ⋮ → Custom repositories**
 3. Add URL: `https://github.com/Bolshem/powerlync-hub-homeassistant`
@@ -87,20 +94,20 @@ Copy the `custom_components/powerlync_energy` folder into your HA
 
 - Home Assistant 2024.1 or newer
 - The `homekit_controller` integration (built into HA — no installation needed)
-- The Powerlync Hub physically installed and connected to your local network
+- The Powerlync Plug/Hub physically installed and connected to your local network
 - The **8-digit HomeKit setup code** printed on the label on your device
 
 ---
 
-## Step 1 — Pair the Powerlync Hub with Home Assistant
+## Step 1 — Pair the Powerlync Plug/Hub with Home Assistant
 
-The Powerlync Hub is a HomeKit accessory. Before this custom integration can work, you must pair the device with HA's built-in HomeKit Controller integration.
+The Powerlync Plug/Hub is a HomeKit accessory. Before this custom integration can work, you must pair the device with HA's built-in HomeKit Controller integration.
 
 > **Note:** If you have previously paired the hub with the Apple Home app or the HydroHome/Powerley app, you may need to **factory reset** the device first to clear the existing pairing. HomeKit devices can only be paired with one controller at a time.
 
 ### 1.1 — Connect the hub to your network
 
-Ensure the Powerlync Hub is powered on and connected to your Wi-Fi or LAN. The HydroHome app can be used for initial network setup if needed (iOS or Android).
+Ensure the Powerlync Plug/Hub is powered on and connected to your Wi-Fi or LAN. The HydroHome app can be used for initial network setup if needed (iOS or Android).
 
 ### 1.2 — Add via Home Assistant
 
@@ -109,7 +116,7 @@ Ensure the Powerlync Hub is powered on and connected to your Wi-Fi or LAN. The H
 3. Search for **HomeKit Controller** and select it
 4. HA will scan for HomeKit devices on your network. You should see **Powerlync-001-XXXXXX** appear in the list
 5. If it does not appear automatically, click **Enter device pairing code manually**
-6. Enter the **8-digit code** from the label on your Powerlync Hub (no dashes)
+6. Enter the **8-digit code** from the label on your Powerlync Plug/Hub (no dashes)
 7. Click **Submit**
 
 ### 1.3 — Verify pairing
@@ -232,14 +239,14 @@ After updating integration files, you don't need to restart all of Home Assistan
 
 - **Single pairing**: If you unpair the hub from HA (e.g. to use the HydroHome app), this integration will stop working until you re-pair and reconfigure.
 - **No push updates**: The hub supports HomeKit event notifications (`ev` permission), but HA's homekit_controller does not subscribe to unknown custom service characteristics. This integration works around that by polling on a fixed interval.
-- **Powerlync Hub only**: This was developed and tested on the **$75 Powerlync Hub**. The **$179 Energy Bridge** has a different architecture (local MQTT on port 2883) and does not need this integration.
+- **Powerlync Plug/Hub only**: This was developed and tested on the **$75 Powerlync Plug/Hub**. The **$179 Energy Bridge** has a different architecture (local MQTT on port 2883) and does not need this integration.
 - **Long-term statistics**: The `Total Energy Consumed` sensor has `state_class: total_increasing`. HA will accumulate long-term statistics automatically, but comparison charts in the Energy Dashboard require several days of history to be meaningful.
 
 ---
 
 ## How this was discovered
 
-This integration was developed by reverse engineering the HomeKit mDNS advertisements and HAP characteristic map of the Powerlync Hub. Key findings:
+This integration was developed by reverse engineering the HomeKit mDNS advertisements and HAP characteristic map of the Powerlync Plug/Hub. Key findings:
 
 - The hub advertises `_hap._tcp.local` on the network (visible via mDNS/Bonjour)
 - HAP communication runs over HTTP on port 80 (not the usual port 8080)
@@ -265,7 +272,7 @@ All previously identified issues have been resolved:
 
 ## Contributing
 
-Pull requests are welcome. If you have a Powerlync Hub and find additional characteristics or behaviours, please open an issue.
+Pull requests are welcome. If you have a Powerlync Plug/Hub and find additional characteristics or behaviours, please open an issue.
 
 ---
 
