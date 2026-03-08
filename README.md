@@ -73,15 +73,38 @@ All characteristics have `"perms": ["pr", "ev"]` — they support both read and 
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Bolshem&repository=powerlync-hub-homeassistant&category=integration)
 
-**One-click install** (if HACS is already installed): click the button above.
+#### Step A — Add to HACS
 
-Or manually:
+**One-click** (if HACS is already installed): click the button above, then skip to Step B.
 
-1. Open HACS in Home Assistant
-2. Go to **Integrations → ⋮ → Custom repositories**
-3. Add URL: `https://github.com/Bolshem/powerlync-hub-homeassistant`
-4. Category: **Integration**
-5. Click **Add**, then search for **Powerlync** and install
+Or add manually:
+
+1. Open **HACS** in the Home Assistant sidebar
+2. Click **Integrations**
+3. Click the **⋮** menu (top right) → **Custom repositories**
+4. Paste `https://github.com/Bolshem/powerlync-hub-homeassistant` in the URL field
+5. Set **Category** to **Integration** and click **Add**
+6. Close the dialog, then search for **Powerlync** in the HACS Integrations list
+7. Click the **Powerlync Energy Monitor** result, then click **Download** (or **Install**)
+8. Confirm the download prompt
+
+#### Step B — Restart Home Assistant
+
+After the download completes, go to **Settings → System → Restart** and restart Home Assistant so the new files are picked up.
+
+#### Step C — Add the integration in Home Assistant
+
+1. Go to **Settings → Devices & Services**
+2. Click **+ Add Integration** (bottom right)
+3. Search for **Powerlync** and select **Powerlync Energy Monitor**
+4. Follow the configuration prompts (the integration will locate your already-paired Powerlync device automatically)
+5. Click **Submit / Finish**
+
+Once added, the integration will appear under **Settings → Devices & Services** and the sensor entities will be created immediately.
+
+> **Note:** You still need to complete **Step 1** (pairing the hub with HomeKit Controller) before the integration will find your device. If you haven't done that yet, see [Step 1](#step-1--pair-the-powerlync-plughub-with-home-assistant) below.
+
+---
 
 ### Manual
 

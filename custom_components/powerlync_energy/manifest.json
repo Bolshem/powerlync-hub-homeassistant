@@ -1,7 +1,7 @@
 {
   "domain": "powerlync_energy",
   "name": "Powerlync Energy Monitor",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "documentation": "https://github.com/Bolshem/powerlync-hub-homeassistant",
   "issue_tracker": "https://github.com/Bolshem/powerlync-hub-homeassistant/issues",
   "requirements": ["aiohomekit==3.2.20"],
