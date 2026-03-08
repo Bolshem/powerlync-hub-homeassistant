@@ -2,6 +2,7 @@
 
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue)](https://www.home-assistant.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 
 A custom Home Assistant integration that exposes real-time energy monitoring data from the **BC Hydro Powerlync Hub** (by Powerley) as sensors in Home Assistant — with no cloud dependency and no reverse-engineering of proprietary protocols.
 
@@ -62,6 +63,23 @@ While the device communicates upstream to AWS IoT Core using mutual TLS (making 
 | 27 | Meter Time (UTC) | int | Unix timestamp |
 
 All characteristics have `"perms": ["pr", "ev"]` — they support both read and push notifications, though this integration uses polling for simplicity and reliability.
+
+---
+
+## Installation
+
+### Via HACS (recommended)
+
+1. Open HACS in Home Assistant
+2. Go to **Integrations → ⋮ → Custom repositories**
+3. Add URL: `https://github.com/Bolshem/powerlync-hub-homeassistant`
+4. Category: **Integration**
+5. Click **Add**, then search for **Powerlync** and install
+
+### Manual
+
+Copy the `custom_components/powerlync_energy` folder into your HA
+`config/custom_components/` directory and restart Home Assistant.
 
 ---
 

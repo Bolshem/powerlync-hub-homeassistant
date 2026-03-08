@@ -2,9 +2,10 @@
   "domain": "powerlync_energy",
   "name": "Powerlync Energy Monitor",
   "version": "1.0.0",
-  "documentation": "https://github.com/local/powerlync_energy",
+  "documentation": "https://github.com/Bolshem/powerlync-hub-homeassistant",
+  "issue_tracker": "https://github.com/Bolshem/powerlync-hub-homeassistant/issues",
   "requirements": ["aiohomekit==3.2.20"],
   "dependencies": ["homekit_controller"],
-  "codeowners": [],
+  "codeowners": ["@Bolshem"],
   "iot_class": "local_polling"
 }
