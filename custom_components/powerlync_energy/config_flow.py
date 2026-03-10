@@ -25,6 +25,25 @@ def _find_powerlync_entries(hass: HomeAssistant) -> list[config_entries.ConfigEn
     ]
 
 
+def _get_serial_from_device_registry(hass: HomeAssistant, hk_entry: config_entries.ConfigEntry) -> str | None:
+    """Read serial from the HA device registry for the homekit_controller entry."""
+    try:
+        from homeassistant.helpers import device_registry as dr
+        dev_reg = dr.async_get(hass)
+        for device in dev_reg.devices.values():
+            if hk_entry.entry_id in device.config_entries:
+                if device.serial_number:
+                    return device.serial_number
+                # Also try extracting from device name e.g. "Powerlync-001-000528"
+                if device.name:
+                    parts = device.name.split("-")
+                    if len(parts) >= 3 and parts[-1].isdigit():
+                        return parts[-1]
+    except Exception as err:
+        _LOGGER.debug("Powerlync: device registry serial lookup failed: %s", err)
+    return None
+
+
 def _get_accessory_serial(hass: HomeAssistant, hk_entry: config_entries.ConfigEntry) -> str:
     """Extract the serial number from the HomeKit accessory data.
 
@@ -54,6 +73,12 @@ def _get_accessory_serial(hass: HomeAssistant, hk_entry: config_entries.ConfigEn
                 return serial.strip()
         except Exception as err:
             _LOGGER.debug("Powerlync: serial read from %s failed: %s", key, err)
+
+    # Try device registry — serial is stored there by homekit_controller
+    serial = _get_serial_from_device_registry(hass, hk_entry)
+    if serial:
+        _LOGGER.debug("Powerlync: got serial %s from device registry", serial)
+        return serial
 
     # Last resort: short unique slice of entry_id
     _LOGGER.warning(
