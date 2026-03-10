@@ -195,8 +195,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Powerlync Energy sensors."""
-    homekit_entry_id: str = entry.data.get("homekit_entry_id", "")
-    entities = [PowerlyncSensor(hass, desc) for desc in SENSOR_DESCRIPTIONS]
+    homekit_entry_id: str = entry.data.get("homekit_entry_id", entry.entry_id)
+    serial: str = entry.data.get("serial", "powerlync-001")
+    # Use homekit_entry_id as the unique discriminator — guaranteed unique per hub.
+    # serial is used only for display (device name/identifier).
+    entities = [PowerlyncSensor(hass, desc, serial, homekit_entry_id) for desc in SENSOR_DESCRIPTIONS]
     iid_to_entity = {e.entity_description.iid: e for e in entities}
     async_add_entities(entities, True)
 
@@ -227,16 +230,25 @@ class PowerlyncSensor(SensorEntity):
 
     entity_description: PowerlyncSensorDescription
 
-    def __init__(self, hass: HomeAssistant, description: PowerlyncSensorDescription) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        description: PowerlyncSensorDescription,
+        serial: str = "powerlync-001",
+        homekit_entry_id: str = "",
+    ) -> None:
         self.hass = hass
         self.entity_description = description
-        self._attr_unique_id = f"powerlync_energy_{description.key}"
+        # Unique ID is scoped to homekit_entry_id, not serial, because two hubs
+        # of the same model would have identical serials causing ID collisions.
+        self._attr_unique_id = f"powerlync_energy_{homekit_entry_id}_{description.key}"
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, "powerlync-001")},
-            name="Powerlync Energy Monitor",
+            identifiers={(DOMAIN, homekit_entry_id)},
+            name=f"Powerlync Energy Monitor ({serial})",
             manufacturer="Powerley",
             model="Powerlync",
+            serial_number=serial,
         )
         self._attr_native_value = None
 
