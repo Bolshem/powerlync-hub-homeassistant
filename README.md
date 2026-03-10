@@ -22,8 +22,8 @@ While the device communicates upstream to AWS IoT Core using mutual TLS (making 
 ```
  Zigbee (Smart Energy Profile)
  ┌─────────────┐                    ┌──────────────────┐
- │ BC Hydro    │ ─────────────────► │ Powerlync Plug/Hub │
- │ Smart Meter │                    │ (Powerley device) │
+ │ BC Hydro    │ ─────────────────► │ Powerlync Plug/  │
+ │ Smart Meter │                    │ Hub (Powerley)   │
  └─────────────┘                    └────────┬─────────┘
                                              │
                           ┌──────────────────┼──────────────────┐
@@ -47,9 +47,7 @@ While the device communicates upstream to AWS IoT Core using mutual TLS (making 
 ### How it works
 
 1. **HomeKit pairing**: The Powerlync hub speaks the HomeKit Accessory Protocol (HAP) over HTTP on port 80. You pair it with HA's built-in `homekit_controller` integration using the 8-digit code printed on the device label.
-
 2. **Custom HAP service**: In addition to a standard HomeKit smart plug service, the hub exposes a custom Powerley service (UUID `DBDE3C5B-D7EA-434B-8684-356FAFAFD1A6`) containing energy monitoring characteristics not defined in the official HomeKit spec. These are the characteristics this integration reads.
-
 3. **Polling**: The `homekit_controller` integration ignores unknown custom UUIDs and does not expose them as entities. This custom integration calls `pairing.get_characteristics()` directly every 10 seconds to read the energy data and expose it as standard HA sensor entities.
 
 ### Custom HAP Characteristics
@@ -61,55 +59,10 @@ While the device communicates upstream to AWS IoT Core using mutual TLS (making 
 | 23 | Current Summation Received | string | `"000000.1 kWh"` |
 | 24 | Local Instantaneous Demand | float | `859.0` (watts) |
 | 25 | Local Summation Delivered | float | `64732.4` (kWh) |
+| 26 | Local Time (UTC) | int | Unix timestamp |
 | 27 | Meter Time (UTC) | int | Unix timestamp |
 
 All characteristics have `"perms": ["pr", "ev"]` — they support both read and push notifications, though this integration uses polling for simplicity and reliability.
-
----
-
-## Installation
-
-### Via HACS (recommended)
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Bolshem&repository=powerlync-hub-homeassistant&category=integration)
-
-#### Step A — Add to HACS
-
-**One-click** (if HACS is already installed): click the button above, then skip to Step B.
-
-Or add manually:
-
-1. Open **HACS** in the Home Assistant sidebar
-2. Click **Integrations**
-3. Click the **⋮** menu (top right) → **Custom repositories**
-4. Paste `https://github.com/Bolshem/powerlync-hub-homeassistant` in the URL field
-5. Set **Category** to **Integration** and click **Add**
-6. Close the dialog, then search for **Powerlync** in the HACS Integrations list
-7. Click the **Powerlync Energy Monitor** result, then click **Download** (or **Install**)
-8. Confirm the download prompt
-
-#### Step B — Restart Home Assistant
-
-After the download completes, go to **Settings → System → Restart** and restart Home Assistant so the new files are picked up.
-
-#### Step C — Add the integration in Home Assistant
-
-1. Go to **Settings → Devices & Services**
-2. Click **+ Add Integration** (bottom right)
-3. Search for **Powerlync** and select **Powerlync Energy Monitor**
-4. Follow the configuration prompts (the integration will locate your already-paired Powerlync device automatically)
-5. Click **Submit / Finish**
-
-Once added, the integration will appear under **Settings → Devices & Services** and the sensor entities will be created immediately.
-
-> **Note:** You still need to complete **Step 1** (pairing the hub with HomeKit Controller) before the integration will find your device. If you haven't done that yet, see [Step 1](#step-1--pair-the-powerlync-plughub-with-home-assistant) below.
-
----
-
-### Manual
-
-Copy the `custom_components/powerlync_energy` folder into your HA
-`config/custom_components/` directory and restart Home Assistant.
 
 ---
 
@@ -153,11 +106,38 @@ If you see these, the HomeKit pairing was successful and you can proceed to inst
 
 ---
 
-## Step 2 — Install the Custom Integration
+## Step 2 — Install via HACS (recommended)
 
-### 2.1 — Copy the integration files
+### 2.1 — Add to HACS
 
-Copy the `powerlync_energy` folder from this repository into your Home Assistant `custom_components` directory:
+**One-click** (if HACS is already installed): click the button at the top of this page, then skip to step 2.3.
+
+Or add manually:
+
+1. Open **HACS** in the Home Assistant sidebar
+2. Click **Integrations**
+3. Click the **⋮** menu (top right) → **Custom repositories**
+4. Paste `https://github.com/Bolshem/powerlync-hub-homeassistant` and set Category to **Integration**
+5. Click **Add**, then search for **Powerlync** and click **Download**
+
+### 2.2 — Restart Home Assistant
+
+Go to **Settings → System → Restart** after the download completes.
+
+### 2.3 — Add the integration
+
+1. Go to **Settings → Devices & Services**
+2. Click **+ Add Integration**
+3. Search for **Powerlync** and select **Powerlync Energy Monitor**
+4. The integration will automatically find your paired Powerlync device and create the sensors
+
+> **Important:** HACS only downloads the files. You must complete step 2.3 to actually set up the integration — it will not appear under installed integrations until you do this step.
+
+---
+
+## Step 2 (alternative) — Manual install
+
+Copy the `custom_components/powerlync_energy` folder from this repository into your HA `config/custom_components/` directory:
 
 ```
 config/
@@ -167,70 +147,71 @@ config/
         ├── config_flow.py
         ├── manifest.json
         ├── sensor.py
-        └── strings.json
+        ├── strings.json
+        └── translations/
+            └── en.json
 ```
 
-If you're using the HA file editor, Samba share, or SSH, the path is typically `/config/custom_components/`.
+Restart Home Assistant, then go to **Settings → Devices & Services → + Add Integration** and search for **Powerlync**.
 
-### 2.2 — Enable the integration
-
-Add the following line to your `configuration.yaml`:
-
-```yaml
-powerlync_energy:
-```
-
-### 2.3 — Restart Home Assistant
-
-Go to **Settings → System → Restart** and restart Home Assistant.
-
-### 2.4 — Confirm the integration loaded
-
-Go to **Settings → Devices & Services**. You should see **Powerlync Energy Monitor** listed. It will have created 6 new sensor entities (see below).
+> **Note:** No `configuration.yaml` changes are required.
 
 ---
 
 ## Sensor Entities
 
-After installation, the following entities will appear in Home Assistant:
+After installation, the following entities will appear in Home Assistant. Entity IDs include the device serial number (e.g. `000528`) to support multiple hubs:
 
 | Entity | Description | Unit |
 |--------|-------------|------|
-| `sensor.powerlync_energy_monitor_instantaneous_demand` | Real-time power draw from the grid | W |
-| `sensor.powerlync_energy_monitor_total_energy_consumed` | Lifetime cumulative energy consumed | kWh |
-| `sensor.powerlync_energy_monitor_total_energy_received_solar` | Lifetime solar / feed-in energy | kWh |
-| `sensor.powerlync_energy_monitor_local_instantaneous_demand` | Local real-time power (float) | W |
-| `sensor.powerlync_energy_monitor_local_energy_delivered` | Local cumulative energy | kWh |
-| `sensor.powerlync_energy_monitor_meter_last_updated` | Last time meter data was synced | timestamp |
+| `sensor.powerlync_energy_monitor_XXXXXX_instantaneous_demand` | Real-time power draw from the grid | W |
+| `sensor.powerlync_energy_monitor_XXXXXX_total_energy_consumed` | Lifetime cumulative energy consumed | kWh |
+| `sensor.powerlync_energy_monitor_XXXXXX_total_energy_received` | Lifetime solar / feed-in energy | kWh |
+| `sensor.powerlync_energy_monitor_XXXXXX_local_instantaneous_demand` | Local real-time power (float) | W |
+| `sensor.powerlync_energy_monitor_XXXXXX_local_energy_delivered` | Local cumulative energy | kWh |
+| `sensor.powerlync_energy_monitor_XXXXXX_local_time` | Local device time | timestamp |
+| `sensor.powerlync_energy_monitor_XXXXXX_meter_last_updated` | Last time meter data was synced | timestamp |
+
+Where `XXXXXX` is the last segment of your device serial number (e.g. `000528` from `Powerlync-001-000528`).
 
 All sensors are updated every **10 seconds**.
 
-> **Note:** Entity names may vary slightly depending on how HA names the device. If you cannot find them, go to **Developer Tools → States** and search for `powerlync`.
+> **Tip:** If you cannot find your entities, go to **Developer Tools → States** and search for `powerlync`.
 
 ---
 
 ## Step 3 — Add to the Energy Dashboard (optional)
 
 1. Go to **Settings → Energy**
-2. Under **Electricity Grid**, click **Add consumption** and select `sensor.powerlync_energy_monitor_total_energy_consumed`
-3. If you have solar panels, under **Solar Panels** add `sensor.powerlync_energy_monitor_total_energy_received_solar`
+2. Under **Electricity Grid**, click **Add consumption** and select your `total_energy_consumed` sensor
+3. If you have solar panels, add your `total_energy_received` sensor under **Solar Panels**
 4. Click **Save**
 
-The Energy Dashboard will start accumulating statistics. Historical comparison charts will become available after sufficient data has been collected.
+The Energy Dashboard will start accumulating statistics. Historical comparison charts will become available after a few days of data.
+
+> **Note:** The first time the sensor is registered, HA may record a large one-time spike equal to your lifetime meter reading. This is normal HA behaviour with `total_increasing` sensors and self-corrects from the next reading onward. If it persists, go to **Developer Tools → Statistics**, find the sensor, and use **Fix issue** to clear the outlier.
+
+---
+
+## Multiple Hubs
+
+The integration supports multiple Powerlync hubs on the same HA instance. When you run **Add Integration** a second time, it will detect the second paired device and create a separate set of entities scoped to that hub's serial number. Each hub appears as a distinct device in **Settings → Devices & Services**.
 
 ---
 
 ## Troubleshooting
 
-### The integration does not appear after restart
+### "No Powerlync device found" when adding the integration
 
-Check **Settings → System → Logs** and filter for `powerlync`. Confirm that `custom_components/powerlync_energy/` is in the correct location and that `powerlync_energy:` is in `configuration.yaml`.
+The integration requires the hub to be paired via **HomeKit Controller** first (Step 1). If HomeKit Controller doesn't show the hub, make sure the device is on the same network as Home Assistant and try pairing manually using the 8-digit code on the label.
 
 ### Sensors show `unavailable` or `unknown`
 
-The integration finds the paired Powerlync device by looking for any `HKDevice` object in `hass.data["homekit_controller-devices"]`. If the HomeKit Controller integration hasn't finished loading yet, the poll will be retried automatically on the next interval.
+Check that the HomeKit Controller pairing is healthy by verifying the `switch.powerlync_*_plug` entity has a valid state. If it shows unavailable, the hub may have lost its network connection or the HomeKit pairing may need to be re-established.
 
-Check that the homekit pairing is working correctly by verifying the `switch.powerlync_*_plug` entity has a valid state.
+### Energy Dashboard spikes every few days
+
+This happens when the HomeKit connection drops and reconnects, causing HA to re-register the lifetime meter value as a new reading. The integration retains the last known value when a poll returns zero or fails, which mitigates most cases. For persistent spikes, go to **Developer Tools → Statistics → Fix issues**.
 
 ### The device was already paired with another app
 
@@ -240,7 +221,7 @@ HomeKit devices support only one controller pairing at a time. Reset the device:
 2. Or perform a factory reset by holding the reset button on the hub for 10 seconds until the LED flashes
 3. Re-pair using Step 1 above
 
-### Poll interval
+### Changing the poll interval
 
 The default poll interval is 10 seconds. The Zigbee smart meter typically updates every 30 seconds, so polling faster than that won't yield new readings. To adjust, edit `sensor.py`:
 
@@ -248,11 +229,9 @@ The default poll interval is 10 seconds. The Zigbee smart meter typically update
 SCAN_INTERVAL = timedelta(seconds=30)
 ```
 
----
+### Reloading without a full restart
 
-## Reloading without a full restart
-
-After updating integration files, you don't need to restart all of Home Assistant. Go to:
+After updating integration files, reload without restarting HA:
 
 **Settings → Devices & Services → Powerlync Energy Monitor → ⋮ → Reload**
 
@@ -263,7 +242,7 @@ After updating integration files, you don't need to restart all of Home Assistan
 - **Single pairing**: If you unpair the hub from HA (e.g. to use the HydroHome app), this integration will stop working until you re-pair and reconfigure.
 - **No push updates**: The hub supports HomeKit event notifications (`ev` permission), but HA's homekit_controller does not subscribe to unknown custom service characteristics. This integration works around that by polling on a fixed interval.
 - **Powerlync Plug/Hub only**: This was developed and tested on the **$75 Powerlync Plug/Hub**. The **$179 Energy Bridge** has a different architecture (local MQTT on port 2883) and does not need this integration.
-- **Long-term statistics**: The `Total Energy Consumed` sensor has `state_class: total_increasing`. HA will accumulate long-term statistics automatically, but comparison charts in the Energy Dashboard require several days of history to be meaningful.
+- **Long-term statistics**: Comparison charts in the Energy Dashboard require several days of history to be meaningful.
 
 ---
 
@@ -276,20 +255,6 @@ This integration was developed by reverse engineering the HomeKit mDNS advertise
 - A custom Powerley service UUID exposes energy characteristics not in the HomeKit spec
 - The cloud connection uses mutual TLS to AWS IoT Core — not practical to intercept
 - The built-in `/identify` HTTP endpoint (POST) triggers the LED identification mode
-
----
-
-## Known Possible Issues
-
-All previously identified issues have been resolved:
-
-- **`iot_class` corrected**: `manifest.json` now declares `"iot_class": "local_polling"`, accurately reflecting the fixed-interval polling behaviour.
-
-- **HomeKit device lookup hardened**: `sensor.py` now resolves the Powerlync device by matching `homekit_entry_id` from the config entry against each paired `HKDevice`, ensuring the correct device is selected even when multiple HomeKit accessories are paired. A warning-logged fallback to the first device is retained for resilience against HA version differences.
-
-- **IID 26 (`Local Time`) now polled**: IID 26 is included in the `CHARACTERISTICS` poll list and exposed as a `sensor.powerlync_energy_monitor_local_time` timestamp entity.
-
-- **Fallback to last known value**: Sensors retain their last known good value when a poll returns `None` or a parse failure. Cumulative energy sensors (`retain_on_zero=True`) additionally retain their last value when the parsed result is `0`, preventing spurious zero-readings from causing spikes in the Energy Dashboard.
 
 ---
 
