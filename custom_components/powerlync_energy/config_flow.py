@@ -59,17 +59,27 @@ class PowerlyncEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not new_entries:
             return self.async_abort(reason="already_configured")
 
-        # Spawn separate flows for hubs 2+ so each gets its own config entry
+        # Spawn separate flows for hubs 2+ so each gets its own config entry.
+        # Pass the specific entry via context so the flow doesn't re-run discovery.
         for extra in new_entries[1:]:
             self.hass.async_create_task(
                 self.hass.config_entries.flow.async_init(
                     DOMAIN,
-                    context={"source": "user"},
-                    data={"homekit_entry": extra},
+                    context={"source": "single_hub", "hk_entry": extra},
+                    data={},
                 )
             )
 
         return await self._create_entry_for(new_entries[0])
+
+    async def async_step_single_hub(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle flow for a specific hub, passed via context by async_step_user."""
+        hk_entry = self.context.get("hk_entry")
+        if hk_entry is None:
+            return self.async_abort(reason="no_powerlync_found")
+        return await self._create_entry_for(hk_entry)
 
     async def _create_entry_for(
         self, hk_entry: config_entries.ConfigEntry
