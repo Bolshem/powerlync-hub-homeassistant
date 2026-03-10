@@ -32,13 +32,15 @@ def _get_serial_from_device_registry(hass: HomeAssistant, hk_entry: config_entri
         dev_reg = dr.async_get(hass)
         for device in dev_reg.devices.values():
             if hk_entry.entry_id in device.config_entries:
-                if device.serial_number:
-                    return device.serial_number
-                # Also try extracting from device name e.g. "Powerlync-001-000528"
-                if device.name:
-                    parts = device.name.split("-")
-                    if len(parts) >= 3 and parts[-1].isdigit():
-                        return parts[-1]
+                # serial_number or name may be "001-000528" or "Powerlync-001-000528"
+                # Always take just the last numeric segment
+                raw = device.serial_number or device.name or ""
+                parts = raw.split("-")
+                last = parts[-1].strip()
+                if last.isdigit():
+                    return last
+                if raw.strip():
+                    return raw.strip()
     except Exception as err:
         _LOGGER.debug("Powerlync: device registry serial lookup failed: %s", err)
     return None
