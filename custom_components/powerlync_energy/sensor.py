@@ -239,9 +239,11 @@ class PowerlyncSensor(SensorEntity):
     ) -> None:
         self.hass = hass
         self.entity_description = description
-        # Unique ID is scoped to homekit_entry_id, not serial, because two hubs
-        # of the same model would have identical serials causing ID collisions.
-        self._attr_unique_id = f"powerlync_energy_{homekit_entry_id}_{description.key}"
+        # unique_id always includes serial so entity IDs are human-readable
+        # and consistent regardless of how many hubs are installed.
+        # Falls back to homekit_entry_id only if serial is somehow empty.
+        uid_discriminator = serial if serial else homekit_entry_id
+        self._attr_unique_id = f"powerlync_energy_{uid_discriminator}_{description.key}"
         self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, homekit_entry_id)},
