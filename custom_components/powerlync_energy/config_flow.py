@@ -25,6 +25,45 @@ def _find_powerlync_entries(hass: HomeAssistant) -> list[config_entries.ConfigEn
     ]
 
 
+def _get_accessory_serial(hass: HomeAssistant, hk_entry: config_entries.ConfigEntry) -> str:
+    """Extract the serial number from the HomeKit accessory data.
+
+    homekit_controller stores the full accessory list in the config entry data.
+    We deserialize it with aiohomekit and read the standard serial_number
+    characteristic from the AccessoryInformation service.
+
+    Falls back to a short slice of entry_id if not found.
+    """
+    from aiohomekit.model import Accessories
+
+    # homekit_controller stores accessories under one of these keys
+    for key in ("accessories", "AccessoryInfo", "pairing_data"):
+        try:
+            data = hk_entry.data.get(key)
+            if not data:
+                continue
+            # data may be a list of accessories or a dict wrapping them
+            if isinstance(data, dict):
+                data = data.get("accessories", [])
+            if not isinstance(data, list) or not data:
+                continue
+            accessories = Accessories.from_list(data)
+            serial = accessories.aid(1).serial_number
+            if serial and serial.strip():
+                _LOGGER.debug("Powerlync: got serial %s from key %s", serial, key)
+                return serial.strip()
+        except Exception as err:
+            _LOGGER.debug("Powerlync: serial read from %s failed: %s", key, err)
+
+    # Last resort: short unique slice of entry_id
+    _LOGGER.warning(
+        "Powerlync: could not read serial from pairing data for entry %s, "
+        "using entry_id fallback. Entity IDs may not be human-readable.",
+        hk_entry.entry_id,
+    )
+    return hk_entry.entry_id[:8]
+
+
 def _already_configured_entry_ids(hass: HomeAssistant) -> set[str]:
     """Return homekit_entry_ids already managed by an existing powerlync_energy entry."""
     return {
@@ -88,13 +127,13 @@ class PowerlyncEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(f"powerlync_energy_{hk_entry.entry_id}")
         self._abort_if_unique_id_configured()
 
-        # Extract serial from title e.g. "Powerlync-001-000528" -> "000528"
-        # Fall back to the full slugified title, then to homekit_entry_id
-        parts = hk_entry.title.replace(" ", "-").split("-")
-        serial = parts[-1] if len(parts) >= 3 and parts[-1].isdigit() else hk_entry.title.replace(" ", "-")
+        # Read the serial number directly from the HomeKit accessory data.
+        # HA stores the full accessory entity map in the homekit_controller
+        # config entry data under the "accessories" key.
+        serial = _get_accessory_serial(self.hass, hk_entry)
 
         return self.async_create_entry(
-            title=f"Powerlync Energy Monitor ({hk_entry.title})",
+            title=f"Powerlync Energy Monitor ({serial})",
             data={
                 "homekit_entry_id": hk_entry.entry_id,
                 "serial": serial,
