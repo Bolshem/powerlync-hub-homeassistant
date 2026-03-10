@@ -88,7 +88,10 @@ class PowerlyncEnergyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(f"powerlync_energy_{hk_entry.entry_id}")
         self._abort_if_unique_id_configured()
 
-        serial = hk_entry.title.replace(" ", "-")
+        # Extract serial from title e.g. "Powerlync-001-000528" -> "000528"
+        # Fall back to the full slugified title, then to homekit_entry_id
+        parts = hk_entry.title.replace(" ", "-").split("-")
+        serial = parts[-1] if len(parts) >= 3 and parts[-1].isdigit() else hk_entry.title.replace(" ", "-")
 
         return self.async_create_entry(
             title=f"Powerlync Energy Monitor ({hk_entry.title})",
