@@ -71,7 +71,7 @@ All characteristics have `"perms": ["pr", "ev"]` — they support both read and 
 - Home Assistant 2024.1 or newer
 - The `homekit_controller` integration (built into HA — no installation needed)
 - The Powerlync Plug/Hub physically installed and connected to your local network
-- The **8-digit HomeKit setup code** printed on the label on your device
+- The **8-digit HomeKit setup code** from your device label or QR code (see note below if your device has no printed code)
 
 ---
 
@@ -80,6 +80,8 @@ All characteristics have `"perms": ["pr", "ev"]` — they support both read and 
 The Powerlync Plug/Hub is a HomeKit accessory. Before this custom integration can work, you must pair the device with HA's built-in HomeKit Controller integration.
 
 > **Note:** If you have previously paired the hub with the Apple Home app or the HydroHome/Powerley app, you may need to **factory reset** the device first to clear the existing pairing. HomeKit devices can only be paired with one controller at a time.
+
+> **No printed pairing code?** Some units (e.g. Powerlync 002) have a QR code on the label but no printed 8-digit code. Scan the QR code — it produces a string like `X-HM://00XXXXXXX`. You can decode the HomeKit pairing code from that string using the tool at **[dekyon.com](https://dekyon.com)**, or manually with the JavaScript snippet in the [troubleshooting section](#no-printed-pairing-code--qr-code-only) below.
 
 ### 1.1 — Connect the hub to your network
 
@@ -200,6 +202,27 @@ The integration supports multiple Powerlync hubs on the same HA instance. When y
 ---
 
 ## Troubleshooting
+
+### No printed pairing code — QR code only
+
+Some units (notably the **Powerlync 002**) ship with a QR code sticker but no printed 8-digit HomeKit setup code.
+
+1. Scan the QR code with any QR scanner app — you will get a string like `X-HM://00XXXXXXX`
+2. Use the online decoder at **[dekyon.com](https://dekyon.com)** to convert it to the 8-digit code, **or** run this in your browser console:
+
+```js
+function decodeHomekitQR(qrString) {
+  const encoded = qrString.split('://')[1];
+  const decimal = parseInt(encoded, 36);
+  const code = (decimal & 0x7FFFFFF).toString().padStart(8, '0');
+  return `${code.slice(0,3)}-${code.slice(3,5)}-${code.slice(5)}`;
+}
+// Example: decodeHomekitQR("X-HM://00QR4AAEX")
+```
+
+3. Use the resulting `XXX-XX-XXX` formatted code when prompted by HA during pairing
+
+---
 
 ### "No Powerlync device found" when adding the integration
 
