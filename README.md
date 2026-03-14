@@ -208,7 +208,7 @@ The integration supports multiple Powerlync hubs on the same HA instance. When y
 Some units (notably the **Powerlync 002**) ship with a QR code sticker but no printed 8-digit HomeKit setup code.
 
 1. Scan the QR code with any QR scanner app — you will get a string like `X-HM://00XXXXXXX`
-2. Use the online decoder at **[dekyon.com](https://dekyon.com)** to convert it to the 8-digit code, **or** run this in your browser console:
+2. Use the online decoder at **[dekyon.com](https://dekyon.com/powerlync.html)** to convert it to the 8-digit code, **or** run this in your browser console:
 
 ```js
 function decodeHomekitQR(qrString) {
