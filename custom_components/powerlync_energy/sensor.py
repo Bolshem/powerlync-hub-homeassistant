@@ -87,7 +87,7 @@ class PowerlyncSensorDescription(SensorEntityDescription):
 SENSOR_DESCRIPTIONS: list[PowerlyncSensorDescription] = [
     PowerlyncSensorDescription(
         key="instantaneous_demand",
-        name="Instantaneous Demand",
+        name="Grid Instantaneous Demand",
         iid=21,
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
@@ -98,7 +98,7 @@ SENSOR_DESCRIPTIONS: list[PowerlyncSensorDescription] = [
     ),
     PowerlyncSensorDescription(
         key="total_energy_consumed",
-        name="Total Energy Consumed",
+        name="Grid Total Energy Consumed",
         iid=22,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
@@ -120,7 +120,7 @@ SENSOR_DESCRIPTIONS: list[PowerlyncSensorDescription] = [
     ),
     PowerlyncSensorDescription(
         key="local_instantaneous_demand",
-        name="Local Instantaneous Demand",
+        name="Plug Instantaneous Demand",
         iid=24,
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
@@ -131,7 +131,7 @@ SENSOR_DESCRIPTIONS: list[PowerlyncSensorDescription] = [
     ),
     PowerlyncSensorDescription(
         key="local_energy_delivered",
-        name="Local Energy Delivered",
+        name="Plug Energy Delivered",
         iid=25,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
@@ -283,7 +283,9 @@ class PowerlyncSensor(SensorEntity):
             )
             return
 
-        if self.entity_description.retain_on_zero and parsed == 0:
+        # Only retain on zero if we already have a non-zero value
+        # This allows initial 0 values to be set (e.g., no solar production yet)
+        if self.entity_description.retain_on_zero and parsed == 0 and self._attr_native_value is not None and self._attr_native_value > 0:
             _LOGGER.warning(
                 "Powerlync: %s parsed to 0 — likely a failed read, retaining last value=%s",
                 self.entity_description.key,
@@ -292,4 +294,5 @@ class PowerlyncSensor(SensorEntity):
             return
 
         self._attr_native_value = parsed
-        self.async_write_ha_state()
+        if self.hass is not None:
+            self.async_write_ha_state()
