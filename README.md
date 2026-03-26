@@ -211,13 +211,24 @@ Some units (notably the **Powerlync 002**) ship with a QR code sticker but no pr
 2. Use the online decoder at **[dekyon.com](https://dekyon.com/powerlync.html)** to convert it to the 8-digit code, **or** run this in your browser console:
 
 ```js
-function decodeHomekitQR(qrString) {
-  const encoded = qrString.split('://')[1];
-  const decimal = parseInt(encoded, 36);
-  const code = (decimal & 0x7FFFFFF).toString().padStart(8, '0');
-  return `${code.slice(0,3)}-${code.slice(3,5)}-${code.slice(5)}`;
+function setupCodeFrom(uri) {
+    // Extract the portion after "X-HM://" and before the last 4 characters
+    const actualString = uri.substring("X-HM://".length, uri.length - 4);
+
+    // Convert from base 36 to decimal
+    const number = parseInt(actualString, 36);
+
+    // Format the number as an 8-digit string with leading zeros
+    // and apply the bitmask
+    let code = (number & 0x7ffffff).toString().padStart(8, '0');
+
+    // Insert hyphens for standard HomeKit format: XXX-XX-XXX
+    code = code.slice(0, 3) + '-' + code.slice(3, 5) + '-' + code.slice(5);
+
+    return code;
 }
-// Example: decodeHomekitQR("X-HM://00QR4AAEX")
+
+console.log(setupCodeFrom("X-HM://005KEOUCE7FBA"));
 ```
 
 3. Use the resulting `XXX-XX-XXX` formatted code when prompted by HA during pairing
