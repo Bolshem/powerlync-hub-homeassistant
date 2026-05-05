@@ -164,11 +164,7 @@ IID_TO_DESC = {desc.iid: desc for desc in SENSOR_DESCRIPTIONS}
 
 
 def _find_hk_device(hass: HomeAssistant, homekit_entry_id: str) -> Any | None:
-    """Find the HKDevice for a specific homekit_controller config entry.
-
-    Uses the stored homekit_entry_id from the config entry to ensure we always
-    resolve the correct device even when multiple HomeKit accessories are paired.
-    """
+    """Find the HKDevice for a homekit_controller config entry by exact entry_id."""
     devices: dict = hass.data.get(HOMEKIT_DOMAIN, {})
     for device in devices.values():
         try:
@@ -176,17 +172,53 @@ def _find_hk_device(hass: HomeAssistant, homekit_entry_id: str) -> Any | None:
                 return device
         except AttributeError:
             continue
-    # Fallback: if entry_id matching fails (e.g. HA version differences),
-    # log a warning and return the first device as a last resort.
-    if devices:
-        _LOGGER.warning(
-            "Powerlync: could not match homekit_entry_id=%s, falling back to "
-            "first HKDevice. If you have multiple HomeKit devices paired this "
-            "may resolve the wrong device.",
-            homekit_entry_id,
-        )
-        return next(iter(devices.values()))
     return None
+
+
+def _resolve_homekit_entry_id(
+    hass: HomeAssistant, homekit_entry_id: str, accessory_id: str
+) -> str | None:
+    """Resolve the live homekit_controller entry_id for the paired Powerlync.
+
+    Used once at startup to detect and heal a stale stored homekit_entry_id
+    (e.g. after the HomeKit Device integration was deleted and re-added).
+
+    Match order: exact entry_id → AccessoryPairingID → title contains "Powerlync"
+    → first available device (last resort, with warning).
+    Returns None only when hass.data has no HKDevices at all.
+    """
+    devices: dict = hass.data.get(HOMEKIT_DOMAIN, {})
+    if not devices:
+        return None
+
+    for device in devices.values():
+        try:
+            if device.config_entry.entry_id == homekit_entry_id:
+                return homekit_entry_id
+        except AttributeError:
+            pass
+
+    if accessory_id:
+        for device in devices.values():
+            try:
+                if device.config_entry.data.get("AccessoryPairingID") == accessory_id:
+                    return device.config_entry.entry_id
+            except AttributeError:
+                pass
+
+    for device in devices.values():
+        try:
+            if "powerlync" in device.config_entry.title.lower():
+                return device.config_entry.entry_id
+        except AttributeError:
+            pass
+
+    _LOGGER.warning(
+        "Powerlync: no device matched homekit_entry_id=%s or accessory_id=%s; "
+        "using first HKDevice. Multiple HomeKit devices may resolve incorrectly.",
+        homekit_entry_id, accessory_id,
+    )
+    return next(iter(devices.values())).config_entry.entry_id
 
 
 async def async_setup_entry(
@@ -196,17 +228,20 @@ async def async_setup_entry(
 ) -> None:
     """Set up Powerlync Energy sensors."""
     homekit_entry_id: str = entry.data.get("homekit_entry_id", entry.entry_id)
+    accessory_id: str = entry.data.get("accessory_id", "")
     serial: str = entry.data.get("serial", "powerlync-001")
-    # Use homekit_entry_id as the unique discriminator — guaranteed unique per hub.
-    # serial is used only for display (device name/identifier).
     entities = [PowerlyncSensor(hass, desc, serial, homekit_entry_id) for desc in SENSOR_DESCRIPTIONS]
     iid_to_entity = {e.entity_description.iid: e for e in entities}
     async_add_entities(entities, True)
 
+    # resolved_entry_id may be updated once in _on_start if the stored id is stale.
+    # Declared here so _poll closes over the same variable.
+    resolved_entry_id = homekit_entry_id
+
     async def _poll(_now=None):
-        hk_device = _find_hk_device(hass, homekit_entry_id)
+        hk_device = _find_hk_device(hass, resolved_entry_id)
         if hk_device is None:
-            _LOGGER.warning("Powerlync: HKDevice not found (homekit_entry_id=%s)", homekit_entry_id)
+            _LOGGER.warning("Powerlync: HKDevice not found (homekit_entry_id=%s)", resolved_entry_id)
             return
         try:
             results = await hk_device.pairing.get_characteristics(CHARACTERISTICS)
@@ -217,6 +252,26 @@ async def async_setup_entry(
             _LOGGER.warning("Powerlync: poll failed: %s", err)
 
     async def _on_start(_event=None):
+        nonlocal resolved_entry_id
+        found_id = _resolve_homekit_entry_id(hass, homekit_entry_id, accessory_id)
+        if found_id is None:
+            _LOGGER.warning(
+                "Powerlync: no HomeKit devices found at startup "
+                "(homekit_entry_id=%s). Sensors will be unavailable until HA restarts.",
+                homekit_entry_id,
+            )
+        elif found_id != homekit_entry_id:
+            _LOGGER.warning(
+                "Powerlync: stored homekit_entry_id %s is stale (HomeKit Device "
+                "integration was likely re-added). Resolved to %s via AccessoryPairingID "
+                "or device title. Updating config entry so this only logs once.",
+                homekit_entry_id, found_id,
+            )
+            hass.config_entries.async_update_entry(
+                entry, data={**entry.data, "homekit_entry_id": found_id}
+            )
+            resolved_entry_id = found_id
+
         await _poll()
         entry.async_on_unload(
             async_track_time_interval(hass, _poll, SCAN_INTERVAL)
@@ -253,13 +308,12 @@ class PowerlyncSensor(SensorEntity):
             serial_number=serial,
         )
         self._attr_native_value = None
+        self._retaining_zero = False
 
     @callback
     def update_value(self, raw: Any) -> None:
         """Update sensor value, retaining last known value on failed or zero reads."""
         if raw is None:
-            # Poll failed entirely — retain last known value to avoid
-            # spurious 0-readings that cause Energy Dashboard spikes.
             _LOGGER.debug(
                 "Powerlync: %s received None, retaining last value=%s",
                 self.entity_description.key,
@@ -283,16 +337,25 @@ class PowerlyncSensor(SensorEntity):
             )
             return
 
-        # Only retain on zero if we already have a non-zero value
-        # This allows initial 0 values to be set (e.g., no solar production yet)
-        if self.entity_description.retain_on_zero and parsed == 0 and self._attr_native_value is not None and self._attr_native_value > 0:
-            _LOGGER.warning(
-                "Powerlync: %s parsed to 0 — likely a failed read, retaining last value=%s",
-                self.entity_description.key,
-                self._attr_native_value,
-            )
+        # Retain last known non-zero value when the device returns 0, but only
+        # if a non-zero value was previously established — this lets sensors
+        # that legitimately read 0 (e.g. unused plug, no solar) pass through.
+        # Log only on the first consecutive zero-retain; suppress repeats until
+        # a real non-zero reading arrives to avoid log spam.
+        if self.entity_description.retain_on_zero and parsed == 0 and self._attr_native_value:
+            if not self._retaining_zero:
+                _LOGGER.warning(
+                    "Powerlync: %s read 0 (raw=%r) while last known value is %s — "
+                    "likely a failed read, retaining. Will not log again until "
+                    "a non-zero value is received.",
+                    self.entity_description.key,
+                    raw,
+                    self._attr_native_value,
+                )
+                self._retaining_zero = True
             return
 
+        self._retaining_zero = False
         self._attr_native_value = parsed
         if self.hass is not None:
             self.async_write_ha_state()
